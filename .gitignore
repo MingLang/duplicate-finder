@@ -1,0 +1,23 @@
+# Build output
+dist/
+build/
+*.spec.bak
+
+# PyInstaller temp
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# App settings (user-specific)
+duplicate_finder_config.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Claude internal
+.claude/
