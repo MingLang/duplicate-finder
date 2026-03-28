@@ -31,3 +31,43 @@ class ScanResult:
     total_wasted_bytes: int = 0
     duration_seconds: float = 0.0
     groups: list = field(default_factory=list)  # list[DuplicateGroup]
+
+
+@dataclass
+class FolderMatch:
+    """A group of folders that share duplicate files with each other."""
+    folders: list        # list[str] — sorted folder paths in this group
+    shared_hashes: set   # set[str] — file hashes present in >= 2 folders
+    folder_hashes: dict  # dict[str, set[str]] — folder -> all dup-file hashes in it
+    folder_file_map: dict  # dict[str, dict[str, FileInfo]] — folder -> {hash: FileInfo}
+    hash_size: dict      # dict[str, int] — hash -> bytes per file
+
+    @property
+    def shared_file_count(self) -> int:
+        return len(self.shared_hashes)
+
+    @property
+    def shared_bytes(self) -> int:
+        """Total bytes of one copy of every shared file."""
+        return sum(self.hash_size.get(h, 0) for h in self.shared_hashes)
+
+    @property
+    def wasted_bytes(self) -> int:
+        """Space that could be freed by keeping only one folder's copy."""
+        return self.shared_bytes * (len(self.folders) - 1)
+
+    @property
+    def similarity(self) -> float:
+        """Fraction of shared files vs the largest folder's dup-file count (0–1)."""
+        if not self.folder_hashes:
+            return 0.0
+        max_count = max(len(v) for v in self.folder_hashes.values())
+        return len(self.shared_hashes) / max_count if max_count > 0 else 0.0
+
+    @property
+    def is_identical(self) -> bool:
+        """True when every folder contains exactly the same set of files."""
+        if len(self.folders) < 2:
+            return False
+        first = self.folder_hashes[self.folders[0]]
+        return all(self.folder_hashes[f] == first for f in self.folders[1:])

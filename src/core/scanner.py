@@ -17,7 +17,7 @@ def _walk_paths(
     """Iterative directory walk using os.scandir(). Returns list of FileInfo."""
     results = []
     for root_path in paths:
-        stack = [root_path]
+        stack = [os.path.normpath(root_path)]
         while stack:
             current = stack.pop()
             try:
@@ -39,13 +39,13 @@ def _walk_paths(
                                             continue
                                     except (OSError, AttributeError):
                                         pass
-                                stack.append(entry.path)
+                                stack.append(os.path.normpath(entry.path))
                             elif entry.is_file(follow_symlinks=False):
                                 try:
                                     st = entry.stat()
                                     if st.st_size > 0:
                                         results.append(FileInfo(
-                                            path=entry.path,
+                                            path=os.path.normpath(entry.path),
                                             size=st.st_size,
                                             modified=st.st_mtime,
                                         ))
