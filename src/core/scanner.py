@@ -204,4 +204,5 @@ def scan_for_duplicates(
         total_wasted_bytes=total_wasted,
         duration_seconds=elapsed,
         groups=groups,
+        all_files=all_files,
     )

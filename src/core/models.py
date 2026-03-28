@@ -30,7 +30,24 @@ class ScanResult:
     total_groups: int = 0
     total_wasted_bytes: int = 0
     duration_seconds: float = 0.0
-    groups: list = field(default_factory=list)  # list[DuplicateGroup]
+    groups: list = field(default_factory=list)   # list[DuplicateGroup]
+    all_files: list = field(default_factory=list)  # list[FileInfo] — all scanned files
+
+
+@dataclass
+class FolderNode:
+    """A node in the folder size/duplicate tree."""
+    path: str
+    name: str
+    total_size: int = 0       # bytes, includes all descendants
+    total_files: int = 0      # file count, includes all descendants
+    total_dup_files: int = 0  # files that have a duplicate somewhere
+    total_dup_size: int = 0   # bytes of those duplicate files
+    children: list = field(default_factory=list)  # list[FolderNode], sorted by name
+
+    @property
+    def dup_ratio(self) -> float:
+        return self.total_dup_files / self.total_files if self.total_files > 0 else 0.0
 
 
 @dataclass

@@ -10,12 +10,14 @@ from PySide6.QtGui import QIcon, QAction
 from gui.scan_panel import ScanPanel
 from gui.results_table import ResultsTable
 from gui.folder_view import FolderView
+from gui.folder_tree_view import FolderTreeView
 from gui.progress_dialog import ProgressDialog
 from workers.scan_worker import ScanWorker, ScanConfig
 from utils.file_ops import delete_files_to_trash
 from utils.format import human_size
 from utils.config import get_settings
 from core.folder_analyzer import analyze_folder_duplicates
+from core.folder_tree import build_folder_tree
 
 
 def _resource_path(relative: str) -> str:
@@ -34,6 +36,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(900, 600)
         self._worker = None
         self._progress_dlg = None
+        self._last_scan_paths = []
         self._settings = get_settings()
         self._build_ui()
         self._load_stylesheet()
@@ -53,10 +56,12 @@ class MainWindow(QMainWindow):
         self.scan_panel = ScanPanel()
         self.results_table = ResultsTable()
         self.folder_view = FolderView()
+        self.folder_tree_view = FolderTreeView()
 
         self.tab_widget = QTabWidget()
         self.tab_widget.addTab(self.results_table, "File Duplicates")
         self.tab_widget.addTab(self.folder_view, "Folder Analysis")
+        self.tab_widget.addTab(self.folder_tree_view, "Folder Size Map")
 
         self.splitter.addWidget(self.scan_panel)
         self.splitter.addWidget(self.tab_widget)
@@ -82,6 +87,7 @@ class MainWindow(QMainWindow):
         self.results_table.open_requested.connect(self._on_open_requested)
         self.folder_view.delete_requested.connect(self._on_delete_requested)
         self.folder_view.open_requested.connect(self._on_open_folder)
+        self.folder_tree_view.open_requested.connect(self._on_open_folder)
 
     def _load_stylesheet(self):
         qss_path = _resource_path("resources/styles.qss")
@@ -114,8 +120,10 @@ class MainWindow(QMainWindow):
         if self._worker and self._worker.isRunning():
             return
 
+        self._last_scan_paths = paths
         self.results_table.clear()
         self.folder_view.clear()
+        self.folder_tree_view.clear()
         self.scan_panel.set_scanning(True)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
@@ -176,15 +184,21 @@ class MainWindow(QMainWindow):
             )
             self.results_table.load_results(result.groups)
 
-            # Folder analysis (fast — runs on already-computed data)
+            # Folder pairwise analysis
             folder_matches = analyze_folder_duplicates(result)
             if folder_matches:
                 self.folder_view.load_matches(folder_matches)
                 self.tab_widget.setTabText(
-                    1, f"Folder Analysis ({len(folder_matches)} groups)"
+                    1, f"Folder Analysis ({len(folder_matches)} pairs)"
                 )
             else:
                 self.tab_widget.setTabText(1, "Folder Analysis")
+
+        # Folder size map — always build if we have file data
+        if result.all_files:
+            tree_roots = build_folder_tree(result, self._last_scan_paths)
+            if tree_roots:
+                self.folder_tree_view.load_tree(tree_roots)
 
     def _on_scan_error(self, error_msg: str):
         if self._progress_dlg:
